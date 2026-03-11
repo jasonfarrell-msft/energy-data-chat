@@ -1,0 +1,318 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "9741075024892168933"
+    }
+  },
+  "parameters": {
+    "suffix": {
+      "type": "string",
+      "defaultValue": "mx01",
+      "minLength": 4,
+      "maxLength": 4,
+      "metadata": {
+        "description": "Four-character suffix for resource naming."
+      }
+    },
+    "sqlAdminLogin": {
+      "type": "string",
+      "metadata": {
+        "description": "SQL Server administrator login username."
+      }
+    },
+    "sqlAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "SQL Server administrator login password."
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "locationShortMap": {
+      "eastus2": "eus2",
+      "westus": "wus",
+      "eastus": "eus",
+      "centralus": "cus"
+    },
+    "shortLocation": "[variables('locationShortMap')[variables('location')]]",
+    "commonTags": {
+      "SecurityControl": "Ignore"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-sqlServer",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          },
+          "administratorLogin": {
+            "value": "[parameters('sqlAdminLogin')]"
+          },
+          "administratorLoginPassword": {
+            "value": "[parameters('sqlAdminPassword')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "15316241772217686215"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the SQL Server resource."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            },
+            "administratorLogin": {
+              "type": "string",
+              "metadata": {
+                "description": "SQL Server administrator login username."
+              }
+            },
+            "administratorLoginPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "SQL Server administrator login password."
+              }
+            }
+          },
+          "variables": {
+            "sqlServerName": "[format('sqlsvr-pseg-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Sql/servers",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[variables('sqlServerName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "minimalTlsVersion": "1.2",
+                "publicNetworkAccess": "Enabled",
+                "administratorLogin": "[parameters('administratorLogin')]",
+                "administratorLoginPassword": "[parameters('administratorLoginPassword')]"
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the SQL Server."
+              },
+              "value": "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the SQL Server."
+              },
+              "value": "[variables('sqlServerName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-sqlDatabase",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "sqlServerName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-sqlServer'), '2025-04-01').outputs.name.value]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "6231304007049963841"
+            }
+          },
+          "parameters": {
+            "sqlServerName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the SQL Server to host the database."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the SQL Database resource."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            },
+            "maxCapacity": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "The max vCores for serverless auto-pause. Default: 1"
+              }
+            },
+            "minCapacity": {
+              "type": "string",
+              "defaultValue": "0.5",
+              "metadata": {
+                "description": "The min vCores for serverless auto-pause. Default: 0.5"
+              }
+            },
+            "autoPauseDelay": {
+              "type": "int",
+              "defaultValue": 30,
+              "metadata": {
+                "description": "Auto-pause delay in minutes. -1 to disable. Default: 30"
+              }
+            },
+            "maxSizeBytes": {
+              "type": "int",
+              "defaultValue": 2147483648,
+              "metadata": {
+                "description": "Max size in bytes for the database. Default: 2147483648 (2 GB)"
+              }
+            }
+          },
+          "variables": {
+            "sqlDatabaseName": "[format('sqldb-pseg-energrydata-{0}', parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[format('{0}/{1}', parameters('sqlServerName'), variables('sqlDatabaseName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "GP_S_Gen5_1",
+                "tier": "GeneralPurpose",
+                "family": "Gen5",
+                "capacity": "[parameters('maxCapacity')]"
+              },
+              "properties": {
+                "collation": "SQL_Latin1_General_CP1_CI_AS",
+                "maxSizeBytes": "[parameters('maxSizeBytes')]",
+                "autoPauseDelay": "[parameters('autoPauseDelay')]",
+                "minCapacity": "[json(parameters('minCapacity'))]",
+                "zoneRedundant": false,
+                "requestedBackupStorageRedundancy": "Local"
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the SQL Database."
+              },
+              "value": "[resourceId('Microsoft.Sql/servers/databases', parameters('sqlServerName'), variables('sqlDatabaseName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the SQL Database."
+              },
+              "value": "[variables('sqlDatabaseName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-sqlServer')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "sqlServerName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed SQL Server."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-sqlServer'), '2025-04-01').outputs.name.value]"
+    },
+    "sqlDatabaseName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed SQL Database."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-sqlDatabase'), '2025-04-01').outputs.name.value]"
+    }
+  }
+}

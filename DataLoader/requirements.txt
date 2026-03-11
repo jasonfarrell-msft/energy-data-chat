@@ -1,0 +1,5 @@
+msoffcrypto-tool
+openpyxl
+pandas
+pyodbc
+python-dotenv
