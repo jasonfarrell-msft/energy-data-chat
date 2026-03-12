@@ -1,4 +1,59 @@
+# ──────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────
 .env
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.whl
+
+# ──────────────────────────────────────────────
+# C# / .NET
+# ──────────────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.ntvs*
+*.njsproj
+*.sln
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.vspscc
+*.vssscc
+.builds
+
+# ──────────────────────────────────────────────
+# JavaScript / Node
+# ──────────────────────────────────────────────
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# ──────────────────────────────────────────────
+# IDE / OS
+# ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.sw?
+
+# ──────────────────────────────────────────────
+# Infrastructure secrets
+# ──────────────────────────────────────────────
+*.bicepparam

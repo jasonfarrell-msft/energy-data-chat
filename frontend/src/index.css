@@ -1,0 +1,20 @@
+:root {
+  --pseg-navy: #142c41;
+  --pseg-blue: #0079c1;
+  --pseg-orange: #f0512c;
+  --pseg-green: #448359;
+  --pseg-teal: #365453;
+  --pseg-light: #e4ebf7;
+  --pseg-bg: #f6f6f6;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
