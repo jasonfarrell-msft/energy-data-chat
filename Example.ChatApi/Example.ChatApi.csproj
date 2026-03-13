@@ -6,6 +6,12 @@
     <RootNamespace>Example.ChatApi</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>OPENAI001</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.AI.Projects" Version="2.0.0-beta.1" />
+    <PackageReference Include="Azure.Identity" Version="1.17.1" />
+  </ItemGroup>
 
 </Project>

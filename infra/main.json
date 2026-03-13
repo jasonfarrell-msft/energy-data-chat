@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "9741075024892168933"
+      "templateHash": "15415434669429613726"
     }
   },
   "parameters": {
@@ -28,6 +28,18 @@
       "type": "securestring",
       "metadata": {
         "description": "SQL Server administrator login password."
+      }
+    },
+    "containerImageName": {
+      "type": "string",
+      "metadata": {
+        "description": "Container image name and tag for the energy chat API (e.g. energy-chat-api:v1)."
+      }
+    },
+    "foundryProjectName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the AI Foundry project."
       }
     }
   },
@@ -297,6 +309,1398 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'deploy-sqlServer')]"
       ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-applicationInsights",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "2487004481740917611"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the resource."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags."
+              }
+            }
+          },
+          "variables": {
+            "logAnalyticsName": "[format('log-pseg-energychat-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]",
+            "appInsightsName": "[format('appi-pseg-energychat-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[variables('logAnalyticsName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[variables('appInsightsName')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Application Insights instance."
+              },
+              "value": "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Application Insights instance."
+              },
+              "value": "[variables('appInsightsName')]"
+            },
+            "instrumentationKey": {
+              "type": "string",
+              "metadata": {
+                "description": "The instrumentation key for Application Insights."
+              },
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').InstrumentationKey]"
+            },
+            "connectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "The connection string for Application Insights."
+              },
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Log Analytics workspace."
+              },
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-containerEnvironment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          },
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-applicationInsights'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "15254567322490468236"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the Container App Environment resource."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Log Analytics workspace."
+              }
+            }
+          },
+          "variables": {
+            "containerEnvironmentName": "[format('cae-pseg-energychat-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2024-03-01",
+              "name": "[variables('containerEnvironmentName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "zoneRedundant": false,
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', last(split(parameters('logAnalyticsWorkspaceId'), '/'))), '2023-09-01').customerId]",
+                    "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', last(split(parameters('logAnalyticsWorkspaceId'), '/'))), '2023-09-01').primarySharedKey]"
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Container App Environment."
+              },
+              "value": "[resourceId('Microsoft.App/managedEnvironments', variables('containerEnvironmentName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Container App Environment."
+              },
+              "value": "[variables('containerEnvironmentName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-applicationInsights')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-containerRegistry",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "13516885742224920586"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the Container Registry resource."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            }
+          },
+          "variables": {
+            "containerRegistryName": "[format('crpsengchat{0}{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2023-07-01",
+              "name": "[variables('containerRegistryName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Basic"
+              },
+              "properties": {
+                "adminUserEnabled": false
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Container Registry."
+              },
+              "value": "[resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Container Registry."
+              },
+              "value": "[variables('containerRegistryName')]"
+            },
+            "loginServer": {
+              "type": "string",
+              "metadata": {
+                "description": "The login server of the Container Registry."
+              },
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName')), '2023-07-01').loginServer]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-userAssignedIdentity",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "12223255968978669054"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the User Assigned Identity resource."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            }
+          },
+          "variables": {
+            "identityName": "[format('uai-pseg-energychat-core-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[variables('identityName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the User Assigned Identity."
+              },
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the User Assigned Identity."
+              },
+              "value": "[variables('identityName')]"
+            },
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID of the User Assigned Identity."
+              },
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').principalId]"
+            },
+            "clientId": {
+              "type": "string",
+              "metadata": {
+                "description": "The client ID of the User Assigned Identity."
+              },
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2023-01-31').clientId]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-acrPullRoleAssignment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "containerRegistryName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerRegistry'), '2025-04-01').outputs.name.value]"
+          },
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-userAssignedIdentity'), '2025-04-01').outputs.principalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "1641865407609362611"
+            }
+          },
+          "parameters": {
+            "containerRegistryName": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Container Registry to grant pull access to."
+              }
+            },
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID of the identity to assign the AcrPull role to."
+              }
+            }
+          },
+          "variables": {
+            "acrPullRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), parameters('principalId'), variables('acrPullRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('acrPullRoleDefinitionId')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-containerRegistry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-userAssignedIdentity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-appServicePlan",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "5913186062364277613"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the App Service Plan."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            }
+          },
+          "variables": {
+            "appServicePlanName": "[format('asp-pseg-energychat-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2023-12-01",
+              "name": "[variables('appServicePlanName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "linux",
+              "sku": {
+                "name": "B1",
+                "tier": "Basic"
+              },
+              "properties": {
+                "reserved": true
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the App Service Plan."
+              },
+              "value": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the App Service Plan."
+              },
+              "value": "[variables('appServicePlanName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-appService",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          },
+          "appServicePlanId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-appServicePlan'), '2025-04-01').outputs.id.value]"
+          },
+          "containerAppFqdn": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerApp'), '2025-04-01').outputs.fqdn.value]"
+          },
+          "appInsightsConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-applicationInsights'), '2025-04-01').outputs.connectionString.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "1582458292569487108"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the App Service."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            },
+            "appServicePlanId": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the App Service Plan."
+              }
+            },
+            "containerAppFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "The FQDN of the backend Container App (used for API proxy config)."
+              }
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "The Application Insights connection string."
+              }
+            }
+          },
+          "variables": {
+            "appServiceName": "[format('app-pseg-energychat-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-12-01",
+              "name": "[variables('appServiceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "serverFarmId": "[parameters('appServicePlanId')]",
+                "httpsOnly": true,
+                "siteConfig": {
+                  "linuxFxVersion": "NODE|20-lts",
+                  "appCommandLine": "pm2 serve /home/site/wwwroot --no-daemon --spa --port 8080",
+                  "appSettings": [
+                    {
+                      "name": "API_BASE_URL",
+                      "value": "[format('https://{0}', parameters('containerAppFqdn'))]"
+                    },
+                    {
+                      "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                      "value": "[parameters('appInsightsConnectionString')]"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the App Service."
+              },
+              "value": "[resourceId('Microsoft.Web/sites', variables('appServiceName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the App Service."
+              },
+              "value": "[variables('appServiceName')]"
+            },
+            "defaultHostname": {
+              "type": "string",
+              "metadata": {
+                "description": "The default hostname of the App Service."
+              },
+              "value": "[reference(resourceId('Microsoft.Web/sites', variables('appServiceName')), '2023-12-01').defaultHostName]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-applicationInsights')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-appServicePlan')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-containerApp')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-aiFoundry",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "9915101992406681121"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the resource."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code (e.g. eus2)."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Four-character suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags."
+              }
+            }
+          },
+          "variables": {
+            "foundryName": "[format('foundry-pseg-main-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-06-01",
+              "name": "[variables('foundryName')]",
+              "location": "[parameters('location')]",
+              "kind": "AIServices",
+              "sku": {
+                "name": "S0"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "customSubDomainName": "[variables('foundryName')]",
+                "publicNetworkAccess": "Enabled",
+                "allowProjectManagement": true
+              },
+              "tags": "[parameters('tags')]"
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the AI Foundry account."
+              },
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the AI Foundry account."
+              },
+              "value": "[variables('foundryName')]"
+            },
+            "endpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "The endpoint of the AI Foundry account."
+              },
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', variables('foundryName')), '2025-06-01').endpoint]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-aiFoundryProject",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "projectName": {
+            "value": "[parameters('foundryProjectName')]"
+          },
+          "aiFoundryName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry'), '2025-04-01').outputs.name.value]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "7427946402765129061"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the resource."
+              }
+            },
+            "projectName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Foundry project."
+              }
+            },
+            "aiFoundryName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the parent AI Foundry account."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Resource tags."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('aiFoundryName'), parameters('projectName'))]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {},
+              "tags": "[parameters('tags')]"
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Foundry project."
+              },
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiFoundryName'), parameters('projectName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Foundry project."
+              },
+              "value": "[parameters('projectName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-aiModelDeployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiFoundryName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry'), '2025-04-01').outputs.name.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "708100668546558952"
+            }
+          },
+          "parameters": {
+            "aiFoundryName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the parent AI Foundry account."
+              }
+            },
+            "deploymentName": {
+              "type": "string",
+              "defaultValue": "gpt-5.2-chat-deployment",
+              "metadata": {
+                "description": "Name for the model deployment."
+              }
+            },
+            "modelName": {
+              "type": "string",
+              "defaultValue": "gpt-5.2-chat",
+              "metadata": {
+                "description": "Model name to deploy."
+              }
+            },
+            "modelVersion": {
+              "type": "string",
+              "defaultValue": "2025-12-11",
+              "metadata": {
+                "description": "Model version."
+              }
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "GlobalStandard",
+              "metadata": {
+                "description": "Deployment SKU name."
+              }
+            },
+            "skuCapacity": {
+              "type": "int",
+              "defaultValue": 10,
+              "metadata": {
+                "description": "Deployment capacity (thousands of tokens per minute)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-06-01",
+              "name": "[format('{0}/{1}', parameters('aiFoundryName'), parameters('deploymentName'))]",
+              "sku": {
+                "name": "[parameters('skuName')]",
+                "capacity": "[parameters('skuCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "[parameters('modelName')]",
+                  "version": "[parameters('modelVersion')]"
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the model deployment."
+              },
+              "value": "[parameters('deploymentName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundryProject')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-containerApp",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "shortLocation": {
+            "value": "[variables('shortLocation')]"
+          },
+          "suffix": {
+            "value": "[parameters('suffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          },
+          "containerEnvironmentId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerEnvironment'), '2025-04-01').outputs.id.value]"
+          },
+          "containerRegistryLoginServer": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerRegistry'), '2025-04-01').outputs.loginServer.value]"
+          },
+          "userAssignedIdentityId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-userAssignedIdentity'), '2025-04-01').outputs.id.value]"
+          },
+          "imageName": {
+            "value": "[parameters('containerImageName')]"
+          },
+          "frontendHostname": {
+            "value": "[format('app-pseg-energychat-{0}-{1}.azurewebsites.net', variables('shortLocation'), parameters('suffix'))]"
+          },
+          "aiFoundryProjectEndpoint": {
+            "value": "[format('{0}/api/projects/{1}', reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry'), '2025-04-01').outputs.endpoint.value, parameters('foundryProjectName'))]"
+          },
+          "appInsightsConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-applicationInsights'), '2025-04-01').outputs.connectionString.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "11634002160391121210"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for the Container App resource."
+              }
+            },
+            "shortLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Short location code used in naming."
+              }
+            },
+            "suffix": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "metadata": {
+                "description": "Suffix for resource naming."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "metadata": {
+                "description": "Tags to apply to the resource."
+              }
+            },
+            "containerEnvironmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Container App Environment."
+              }
+            },
+            "containerRegistryLoginServer": {
+              "type": "string",
+              "metadata": {
+                "description": "The login server of the Container Registry."
+              }
+            },
+            "userAssignedIdentityId": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the User Assigned Identity."
+              }
+            },
+            "imageName": {
+              "type": "string",
+              "metadata": {
+                "description": "The container image name and tag."
+              }
+            },
+            "frontendHostname": {
+              "type": "string",
+              "metadata": {
+                "description": "The FQDN of the frontend App Service (for CORS)."
+              }
+            },
+            "aiFoundryProjectEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "The AI Foundry project endpoint."
+              }
+            },
+            "aiAgentName": {
+              "type": "string",
+              "defaultValue": "Chat-Agent",
+              "metadata": {
+                "description": "The name of the Foundry agent to invoke."
+              }
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "The Application Insights connection string."
+              }
+            }
+          },
+          "variables": {
+            "containerAppName": "[format('aca-energy-chat-api-{0}-{1}', parameters('shortLocation'), parameters('suffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[variables('containerAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned,UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('userAssignedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[parameters('containerEnvironmentId')]",
+                "configuration": {
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "auto",
+                    "allowInsecure": false,
+                    "corsPolicy": {
+                      "allowedOrigins": [
+                        "http://localhost:5173",
+                        "[format('https://{0}', parameters('frontendHostname'))]"
+                      ],
+                      "allowedMethods": [
+                        "GET",
+                        "POST",
+                        "OPTIONS"
+                      ],
+                      "allowedHeaders": [
+                        "Content-Type"
+                      ]
+                    }
+                  },
+                  "registries": [
+                    {
+                      "server": "[parameters('containerRegistryLoginServer')]",
+                      "identity": "[parameters('userAssignedIdentityId')]"
+                    }
+                  ]
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "energy-chat-api",
+                      "image": "[format('{0}/{1}', parameters('containerRegistryLoginServer'), parameters('imageName'))]",
+                      "env": [
+                        {
+                          "name": "AzureAI__Endpoint",
+                          "value": "[parameters('aiFoundryProjectEndpoint')]"
+                        },
+                        {
+                          "name": "AzureAI__AgentName",
+                          "value": "[parameters('aiAgentName')]"
+                        },
+                        {
+                          "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                          "value": "[parameters('appInsightsConnectionString')]"
+                        }
+                      ],
+                      "resources": {
+                        "cpu": "[json('0.25')]",
+                        "memory": "0.5Gi"
+                      }
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 0,
+                    "maxReplicas": 1
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "metadata": {
+                "description": "The resource ID of the Container App."
+              },
+              "value": "[resourceId('Microsoft.App/containerApps', variables('containerAppName'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Container App."
+              },
+              "value": "[variables('containerAppName')]"
+            },
+            "fqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "The FQDN of the Container App."
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "systemIdentityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID of the Container App system-assigned identity."
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-acrPullRoleAssignment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-applicationInsights')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-containerEnvironment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-containerRegistry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-userAssignedIdentity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-aiFoundryRbac",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiFoundryName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry'), '2025-04-01').outputs.name.value]"
+          },
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerApp'), '2025-04-01').outputs.systemIdentityPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "6919830853405877215"
+            }
+          },
+          "parameters": {
+            "aiFoundryName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the AI Foundry account to assign the role on."
+              }
+            },
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the identity to grant the role to."
+              }
+            }
+          },
+          "variables": {
+            "cognitiveServicesUserRoleId": "a97b65f3-24c7-4388-baec-2e87135dc908"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryName')), parameters('principalId'), variables('cognitiveServicesUserRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesUserRoleId'))]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-containerApp')]"
+      ]
     }
   ],
   "outputs": {
@@ -313,6 +1717,104 @@
         "description": "The name of the deployed SQL Database."
       },
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-sqlDatabase'), '2025-04-01').outputs.name.value]"
+    },
+    "containerEnvironmentName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed Container App Environment."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerEnvironment'), '2025-04-01').outputs.name.value]"
+    },
+    "containerRegistryName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed Container Registry."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerRegistry'), '2025-04-01').outputs.name.value]"
+    },
+    "applicationInsightsName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed Application Insights instance."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-applicationInsights'), '2025-04-01').outputs.name.value]"
+    },
+    "containerRegistryLoginServer": {
+      "type": "string",
+      "metadata": {
+        "description": "The login server of the deployed Container Registry."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerRegistry'), '2025-04-01').outputs.loginServer.value]"
+    },
+    "appServiceName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed App Service."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-appService'), '2025-04-01').outputs.name.value]"
+    },
+    "appServiceHostname": {
+      "type": "string",
+      "metadata": {
+        "description": "The default hostname of the deployed App Service."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-appService'), '2025-04-01').outputs.defaultHostname.value]"
+    },
+    "userAssignedIdentityName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed User Assigned Identity."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-userAssignedIdentity'), '2025-04-01').outputs.name.value]"
+    },
+    "containerAppName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the deployed Container App."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerApp'), '2025-04-01').outputs.name.value]"
+    },
+    "containerAppFqdn": {
+      "type": "string",
+      "metadata": {
+        "description": "The FQDN of the deployed Container App."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerApp'), '2025-04-01').outputs.fqdn.value]"
+    },
+    "aiFoundryName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the AI Foundry account."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry'), '2025-04-01').outputs.name.value]"
+    },
+    "aiFoundryEndpoint": {
+      "type": "string",
+      "metadata": {
+        "description": "The endpoint of the AI Foundry account."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundry'), '2025-04-01').outputs.endpoint.value]"
+    },
+    "aiFoundryProjectName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the AI Foundry project."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiFoundryProject'), '2025-04-01').outputs.name.value]"
+    },
+    "containerAppSystemIdentityPrincipalId": {
+      "type": "string",
+      "metadata": {
+        "description": "The system-assigned identity principal ID of the Container App."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-containerApp'), '2025-04-01').outputs.systemIdentityPrincipalId.value]"
+    },
+    "aiModelDeploymentName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the model deployment."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aiModelDeployment'), '2025-04-01').outputs.name.value]"
     }
   }
 }

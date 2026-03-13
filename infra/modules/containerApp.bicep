@@ -27,6 +27,15 @@ param imageName string
 @description('The FQDN of the frontend App Service (for CORS).')
 param frontendHostname string
 
+@description('The AI Foundry project endpoint.')
+param aiFoundryProjectEndpoint string
+
+@description('The name of the Foundry agent to invoke.')
+param aiAgentName string = 'chat-agent'
+
+@description('The Application Insights connection string.')
+param appInsightsConnectionString string
+
 var containerAppName = 'aca-energy-chat-api-${shortLocation}-${suffix}'
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
@@ -74,6 +83,20 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'energy-chat-api'
           image: '${containerRegistryLoginServer}/${imageName}'
+          env: [
+            {
+              name: 'AzureAI__Endpoint'
+              value: aiFoundryProjectEndpoint
+            }
+            {
+              name: 'AzureAI__AgentName'
+              value: aiAgentName
+            }
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              value: appInsightsConnectionString
+            }
+          ]
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'
@@ -81,8 +104,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
-        maxReplicas: 1
+        minReplicas: 1
+        maxReplicas: 5
       }
     }
   }
@@ -96,3 +119,6 @@ output name string = containerApp.name
 
 @description('The FQDN of the Container App.')
 output fqdn string = containerApp.properties.configuration.ingress.fqdn
+
+@description('The principal ID of the Container App system-assigned identity.')
+output systemIdentityPrincipalId string = containerApp.identity.principalId

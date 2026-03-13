@@ -8,6 +8,7 @@ function Chat() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [conversationId, setConversationId] = useState(null)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -40,13 +41,14 @@ function Chat() {
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatMessage: trimmed }),
+        body: JSON.stringify({ chatMessage: trimmed, conversationId }),
       })
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-      const data = await res.text()
-      setMessages(prev => [...prev, { role: 'bot', content: data }])
+      const data = await res.json()
+      setConversationId(data.conversationId)
+      setMessages(prev => [...prev, { role: 'bot', content: data.response }])
     } catch {
       setMessages(prev => [
         ...prev,

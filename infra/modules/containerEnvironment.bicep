@@ -12,6 +12,9 @@ param suffix string
 @description('Tags to apply to the resource.')
 param tags object
 
+@description('The resource ID of the Log Analytics workspace.')
+param logAnalyticsWorkspaceId string
+
 var containerEnvironmentName = 'cae-pseg-energychat-${shortLocation}-${suffix}'
 
 resource containerEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
@@ -20,7 +23,18 @@ resource containerEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   tags: tags
   properties: {
     zoneRedundant: false
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalyticsWorkspace.properties.customerId
+        sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
+      }
+    }
   }
+}
+
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
+  name: last(split(logAnalyticsWorkspaceId, '/'))!
 }
 
 @description('The resource ID of the Container App Environment.')

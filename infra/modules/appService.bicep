@@ -18,6 +18,9 @@ param appServicePlanId string
 @description('The FQDN of the backend Container App (used for API proxy config).')
 param containerAppFqdn string
 
+@description('The Application Insights connection string.')
+param appInsightsConnectionString string
+
 var appServiceName = 'app-pseg-energychat-${shortLocation}-${suffix}'
 
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
@@ -34,6 +37,10 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'API_BASE_URL'
           value: 'https://${containerAppFqdn}'
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
         }
       ]
     }

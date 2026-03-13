@@ -19,6 +19,9 @@ param sqlAdminPassword string
 @description('Container image name and tag for the energy chat API (e.g. energy-chat-api:v1).')
 param containerImageName string
 
+@description('Name of the AI Foundry project.')
+param foundryProjectName string
+
 // ──────────────────────────────────────────────
 // Variables
 // ──────────────────────────────────────────────
@@ -64,6 +67,16 @@ module sqlDatabase 'modules/sqlDatabase.bicep' = {
   }
 }
 
+module applicationInsights 'modules/applicationInsights.bicep' = {
+  name: 'deploy-applicationInsights'
+  params: {
+    location: location
+    shortLocation: shortLocation
+    suffix: suffix
+    tags: commonTags
+  }
+}
+
 module containerEnvironment 'modules/containerEnvironment.bicep' = {
   name: 'deploy-containerEnvironment'
   params: {
@@ -71,6 +84,7 @@ module containerEnvironment 'modules/containerEnvironment.bicep' = {
     shortLocation: shortLocation
     suffix: suffix
     tags: commonTags
+    logAnalyticsWorkspaceId: applicationInsights.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -121,6 +135,37 @@ module appService 'modules/appService.bicep' = {
     tags: commonTags
     appServicePlanId: appServicePlan.outputs.id
     containerAppFqdn: containerApp.outputs.fqdn
+    appInsightsConnectionString: applicationInsights.outputs.connectionString
+  }
+}
+
+module aiFoundry 'modules/aiFoundry.bicep' = {
+  name: 'deploy-aiFoundry'
+  params: {
+    location: location
+    shortLocation: shortLocation
+    suffix: suffix
+    tags: commonTags
+  }
+}
+
+module aiFoundryProject 'modules/aiFoundryProject.bicep' = {
+  name: 'deploy-aiFoundryProject'
+  params: {
+    location: location
+    projectName: foundryProjectName
+    aiFoundryName: aiFoundry.outputs.name
+    tags: commonTags
+  }
+}
+
+module aiModelDeployment 'modules/aiModelDeployment.bicep' = {
+  name: 'deploy-aiModelDeployment'
+  dependsOn: [
+    aiFoundryProject
+  ]
+  params: {
+    aiFoundryName: aiFoundry.outputs.name
   }
 }
 
@@ -139,6 +184,16 @@ module containerApp 'modules/containerApp.bicep' = {
     userAssignedIdentityId: userAssignedIdentity.outputs.id
     imageName: containerImageName
     frontendHostname: 'app-pseg-energychat-${shortLocation}-${suffix}.azurewebsites.net'
+    aiFoundryProjectEndpoint: '${aiFoundry.outputs.endpoint}/api/projects/${foundryProjectName}'
+    appInsightsConnectionString: applicationInsights.outputs.connectionString
+  }
+}
+
+module aiFoundryRbac 'modules/aiFoundryRbac.bicep' = {
+  name: 'deploy-aiFoundryRbac'
+  params: {
+    aiFoundryName: aiFoundry.outputs.name
+    principalId: containerApp.outputs.systemIdentityPrincipalId
   }
 }
 
@@ -158,6 +213,9 @@ output containerEnvironmentName string = containerEnvironment.outputs.name
 @description('The name of the deployed Container Registry.')
 output containerRegistryName string = containerRegistry.outputs.name
 
+@description('The name of the deployed Application Insights instance.')
+output applicationInsightsName string = applicationInsights.outputs.name
+
 @description('The login server of the deployed Container Registry.')
 output containerRegistryLoginServer string = containerRegistry.outputs.loginServer
 
@@ -175,3 +233,18 @@ output containerAppName string = containerApp.outputs.name
 
 @description('The FQDN of the deployed Container App.')
 output containerAppFqdn string = containerApp.outputs.fqdn
+
+@description('The name of the AI Foundry account.')
+output aiFoundryName string = aiFoundry.outputs.name
+
+@description('The endpoint of the AI Foundry account.')
+output aiFoundryEndpoint string = aiFoundry.outputs.endpoint
+
+@description('The name of the AI Foundry project.')
+output aiFoundryProjectName string = aiFoundryProject.outputs.name
+
+@description('The system-assigned identity principal ID of the Container App.')
+output containerAppSystemIdentityPrincipalId string = containerApp.outputs.systemIdentityPrincipalId
+
+@description('The name of the model deployment.')
+output aiModelDeploymentName string = aiModelDeployment.outputs.name
