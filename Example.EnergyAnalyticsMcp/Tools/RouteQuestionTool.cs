@@ -2,19 +2,14 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Azure.AI.Projects;
 using Example.EnergyAnalyticsMcp.Models;
 using ModelContextProtocol.Server;
-using OpenAI.Chat;
-
-#pragma warning disable OPENAI001
 
 namespace Example.EnergyAnalyticsMcp.Tools;
 
 [McpServerToolType]
 public class RouteQuestionTool
 {
-    private const string DeploymentName = "gpt-5.2-chat-deployment";
 
     // ── Valid intents and their associated metrics ──
     private static readonly Dictionary<string, string[]> IntentMetrics = new()
@@ -34,41 +29,19 @@ public class RouteQuestionTool
         (["min and max", "min/max", "minimum and maximum", "min & max", "min max"], "min_max_mw_trend"),
         (["peak demand", "peak load", "highest load", "highest demand", "max load", "maximum load", "max demand"], "peak_demand"),
         (["lowest load", "minimum load", "min load", "lowest demand", "min demand", "minimum demand"], "min_demand"),
-        (["average load", "avg load", "mean load", "average demand", "avg demand", "average mw", "avg mw", "mean mw"], "avg_load"),
+        (["average load", "avg load", "mean load", "average demand", "avg demand", "average mw", "avg mw", "mean mw", "average.*load", "average.*demand"], "avg_load"),
         (["load factor", "capacity factor", "utilization"], "load_factor"),
         (["trend", "over time", "changed", "change", "how did", "how has"], "general_trend"),
         (["summary", "overview", "summarize", "report"], "summary"),
     ];
 
-    private static readonly string IntentClassificationPrompt =
-        $$"""
-        You are an energy-analytics intent classifier.
-        Given a user question about electrical load / energy data, respond with ONLY a JSON object — no markdown, no explanation.
-
-        Valid intents and their meanings:
-        - min_max_mw_trend : user asks about minimum and/or maximum megawatt trends
-        - peak_demand      : user asks about the highest load or peak demand
-        - min_demand       : user asks about the lowest load or minimum demand
-        - avg_load         : user asks about average load or average megawatts
-        - load_factor      : user asks about load factor, capacity factor, or utilization
-        - general_trend    : user asks about trends, changes over time, or general patterns
-        - summary          : user asks for an overview, summary, or report
-
-        Response schema (strict):
-        {"intent":"<one of the valid intents>","reason":"<one sentence explaining why>"}
-        """;
-
-    private readonly AIProjectClient _projectClient;
-
-    public RouteQuestionTool(AIProjectClient projectClient)
+    public RouteQuestionTool()
     {
-        _projectClient = projectClient;
     }
 
     /// <summary>
     /// Classifies a natural-language energy question into a structured query plan.
-    /// Uses deterministic rules for date range and grain, and an LLM for intent classification
-    /// with a keyword-based fallback.
+    /// Uses deterministic rules for date range, grain, and intent classification.
     /// </summary>
     [McpServerTool(Name = "RouteQuestion")]
     [Description(
@@ -78,7 +51,7 @@ public class RouteQuestionTool
         "grain (day | week | month), metrics list (e.g. min_mw, max_mw, avg_mw), " +
         "start_date, end_date, and a reason string. " +
         "Call this tool first to determine what data to fetch, then pass the result to GetMetrics.")]
-    public async Task<RouteQuestionOutput> Execute(
+    public RouteQuestionOutput Execute(
         [Description("The natural-language energy question from the user, e.g. 'How did the daily minimum and maximum load change last month?'")]
         string question,
 
@@ -103,8 +76,8 @@ public class RouteQuestionTool
         // 2. Deterministic: resolve grain
         var (grain, grainReason) = ResolveGrain(q, startDate, endDate, state);
 
-        // 3. Hybrid: LLM for intent, keyword fallback
-        var (intent, intentReason) = await ResolveIntentAsync(question);
+        // 3. Deterministic keyword-based intent classification
+        var (intent, intentReason) = ResolveIntentByKeywords(q);
         var metrics = IntentMetrics.TryGetValue(intent, out var m)
             ? m.ToList()
             : ["average_mw", "min_mw", "max_mw"];
@@ -120,58 +93,17 @@ public class RouteQuestionTool
         };
     }
 
-    // ── LLM intent classification with keyword fallback ──
-    private async Task<(string Intent, string Reason)> ResolveIntentAsync(string question)
-    {
-        try
-        {
-            ChatClient chatClient = _projectClient.OpenAI.GetChatClient(DeploymentName);
-
-            var messages = new ChatMessage[]
-            {
-                new SystemChatMessage(IntentClassificationPrompt),
-                new UserChatMessage(question)
-            };
-
-            var response = await chatClient.CompleteChatAsync(messages, new ChatCompletionOptions
-            {
-                Temperature = 0f,
-                MaxOutputTokenCount = 150
-            });
-
-            var content = response.Value.Content[0].Text.Trim();
-
-            // Parse the LLM JSON response
-            using var doc = JsonDocument.Parse(content);
-            var root = doc.RootElement;
-
-            var intent = root.GetProperty("intent").GetString() ?? "general_trend";
-            var reason = root.GetProperty("reason").GetString() ?? "LLM classified";
-
-            // Validate against known intents
-            if (!IntentMetrics.ContainsKey(intent))
-            {
-                return ResolveIntentByKeywords(question.ToLowerInvariant(),
-                    $"LLM returned unknown intent '{intent}'; fell back to keywords");
-            }
-
-            return (intent, $"LLM classified intent as '{intent}': {reason}");
-        }
-        catch
-        {
-            // LLM unavailable — fall back to deterministic keyword matching
-            return ResolveIntentByKeywords(question.ToLowerInvariant(),
-                "LLM call failed; fell back to keyword matching");
-        }
-    }
-
     private static (string Intent, string Reason) ResolveIntentByKeywords(string q, string? prefixReason = null)
     {
         foreach (var rule in KeywordFallbackRules)
         {
             foreach (var kw in rule.Keywords)
             {
-                if (q.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                bool matched = kw.Contains('.')
+                    ? Regex.IsMatch(q, kw, RegexOptions.IgnoreCase)
+                    : q.Contains(kw, StringComparison.OrdinalIgnoreCase);
+
+                if (matched)
                 {
                     var reason = $"Intent '{rule.Intent}' matched keyword '{kw}'";
                     return (rule.Intent, prefixReason != null ? $"{prefixReason} → {reason}" : reason);
@@ -315,8 +247,8 @@ public class RouteQuestionTool
             return (cs, ce, $"Carried forward from conversation state: {cs:yyyy-MM-dd} to {ce:yyyy-MM-dd}");
         }
 
-        // Ultimate fallback: last 30 days
-        return (today.AddDays(-30), today, "No time range detected; defaulting to last 30 days");
+        // Ultimate fallback: POC data range (Jan–Mar 2025)
+        return (new DateTime(2025, 1, 1), new DateTime(2025, 3, 31), "No time range detected; defaulting to available data range Jan–Mar 2025");
     }
 
     // ── Grain resolution ──

@@ -37,13 +37,12 @@ public class ChatController : ControllerBase
         CreateResponseOptionsExtensions.set_Agent(options, new AgentReference(_agentName));
         options.InputItems.Add(ResponseItem.CreateUserMessageItem(request.ChatMessage));
 
-        // Conversation continuity: conv_ IDs use AgentConversationId, resp_ IDs use PreviousResponseId
-        if (!string.IsNullOrEmpty(request.ConversationId))
+        // Conversation continuity: when using agents, only conv_ IDs are valid.
+        // resp_ IDs cannot be used with PreviousResponseId when an agent is set.
+        if (!string.IsNullOrEmpty(request.ConversationId)
+            && request.ConversationId.StartsWith("conv", StringComparison.OrdinalIgnoreCase))
         {
-            if (request.ConversationId.StartsWith("conv", StringComparison.OrdinalIgnoreCase))
-                CreateResponseOptionsExtensions.set_AgentConversationId(options, request.ConversationId);
-            else
-                options.PreviousResponseId = request.ConversationId;
+            CreateResponseOptionsExtensions.set_AgentConversationId(options, request.ConversationId);
         }
 
         // Approval loop: auto-approve MCP tool calls that require consent
