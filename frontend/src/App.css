@@ -95,8 +95,73 @@
   border-radius: 16px;
   line-height: 1.5;
   font-size: 15px;
-  white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.message-row.user .message-bubble {
+  white-space: pre-wrap;
+}
+
+/* Markdown inside bot bubbles */
+.message-row.bot .message-bubble p { margin: 0 0 8px; }
+.message-row.bot .message-bubble p:last-child { margin-bottom: 0; }
+.message-row.bot .message-bubble h3 { font-size: 15px; font-weight: 700; margin: 12px 0 4px; }
+.message-row.bot .message-bubble h2 { font-size: 16px; font-weight: 700; margin: 12px 0 4px; }
+.message-row.bot .message-bubble ul,
+.message-row.bot .message-bubble ol { margin: 4px 0 8px; padding-left: 20px; }
+.message-row.bot .message-bubble li { margin-bottom: 2px; }
+.message-row.bot .message-bubble code {
+  background: #f0f0f0; padding: 1px 5px; border-radius: 4px; font-size: 13px;
+}
+.message-row.bot .message-bubble pre {
+  background: #f5f5f5; padding: 10px; border-radius: 8px;
+  overflow-x: auto; margin: 8px 0;
+}
+.message-row.bot .message-bubble pre code { background: none; padding: 0; }
+.message-row.bot .message-bubble blockquote {
+  border-left: 3px solid var(--pseg-orange); margin: 8px 0; padding: 4px 12px;
+  color: #555;
+}
+.message-row.bot .message-bubble strong { font-weight: 600; }
+.message-row.bot .message-bubble table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+.message-row.bot .message-bubble th,
+.message-row.bot .message-bubble td {
+  border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 14px;
+}
+.message-row.bot .message-bubble th { background: #f5f5f5; font-weight: 600; }
+.message-row.bot .message-bubble hr { border: none; border-top: 1px solid #e0e0e0; margin: 12px 0; }
+
+/* Chart toggle button */
+.chart-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pseg-blue);
+  background: #eaf4fb;
+  border: 1px solid #c4dff0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.chart-toggle-btn:hover {
+  background: #d4ecfa;
+  border-color: var(--pseg-blue);
+}
+
+/* Chart container */
+.chart-container {
+  margin: 8px 0;
+  padding: 8px 0;
 }
 
 .message-row.bot .message-bubble {

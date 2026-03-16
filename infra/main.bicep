@@ -19,6 +19,9 @@ param sqlAdminPassword string
 @description('Container image name and tag for the energy chat API (e.g. energy-chat-api:v1).')
 param containerImageName string
 
+@description('Container image name and tag for the energy analytics MCP server (e.g. energry-data-mcp:v1).')
+param mcpContainerImageName string
+
 @description('Name of the AI Foundry project.')
 param foundryProjectName string
 
@@ -184,8 +187,27 @@ module containerApp 'modules/containerApp.bicep' = {
     userAssignedIdentityId: userAssignedIdentity.outputs.id
     imageName: containerImageName
     frontendHostname: 'app-pseg-energychat-${shortLocation}-${suffix}.azurewebsites.net'
-    aiFoundryProjectEndpoint: '${aiFoundry.outputs.endpoint}/api/projects/${foundryProjectName}'
+    aiFoundryProjectEndpoint: '${aiFoundry.outputs.endpoint}api/projects/${foundryProjectName}'
     appInsightsConnectionString: applicationInsights.outputs.connectionString
+  }
+}
+
+module containerAppMcp 'modules/containerAppMcp.bicep' = {
+  name: 'deploy-containerAppMcp'
+  dependsOn: [
+    acrPullRoleAssignment
+  ]
+  params: {
+    location: location
+    shortLocation: shortLocation
+    suffix: suffix
+    tags: commonTags
+    containerEnvironmentId: containerEnvironment.outputs.id
+    containerRegistryLoginServer: containerRegistry.outputs.loginServer
+    userAssignedIdentityId: userAssignedIdentity.outputs.id
+    imageName: mcpContainerImageName
+    sqlConnectionString: 'Server=${sqlServer.outputs.name}${environment().suffixes.sqlServerHostname};Database=sqldb-pseg-energrydata-${suffix};User Id=${sqlAdminLogin};Password=${sqlAdminPassword};Encrypt=true;TrustServerCertificate=false;'
+    aiFoundryProjectEndpoint: '${aiFoundry.outputs.endpoint}api/projects/${foundryProjectName}'
   }
 }
 
@@ -245,6 +267,12 @@ output aiFoundryProjectName string = aiFoundryProject.outputs.name
 
 @description('The system-assigned identity principal ID of the Container App.')
 output containerAppSystemIdentityPrincipalId string = containerApp.outputs.systemIdentityPrincipalId
+
+@description('The name of the MCP Container App.')
+output mcpContainerAppName string = containerAppMcp.outputs.name
+
+@description('The FQDN of the MCP Container App.')
+output mcpContainerAppFqdn string = containerAppMcp.outputs.fqdn
 
 @description('The name of the model deployment.')
 output aiModelDeploymentName string = aiModelDeployment.outputs.name

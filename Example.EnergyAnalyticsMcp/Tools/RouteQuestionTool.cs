@@ -279,6 +279,34 @@ public class RouteQuestionTool
             return (y, y, $"'yesterday' → {y:yyyy-MM-dd}");
         }
 
+        // Named month + year: "January 2024", "in Feb 2025", "for March 2024", etc.
+        var namedMonthYear = Regex.Match(q,
+            @"\b(january|february|march|april|may|june|july|august|september|october|november|december|" +
+            @"jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\s+(\d{4})\b");
+        if (namedMonthYear.Success
+            && DateTime.TryParseExact(
+                namedMonthYear.Groups[1].Value + " " + namedMonthYear.Groups[2].Value,
+                new[] { "MMMM yyyy", "MMM yyyy" },
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var namedMonth))
+        {
+            var monthStart = new DateTime(namedMonth.Year, namedMonth.Month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+            return (monthStart, monthEnd,
+                $"Named month '{namedMonthYear.Value}' → {monthStart:yyyy-MM-dd} to {monthEnd:yyyy-MM-dd}");
+        }
+
+        // Standalone year: "in 2024", "for 2024", "during 2024", or bare "2024"
+        var yearOnly = Regex.Match(q, @"\b(in|for|during)?\s*(\d{4})\b");
+        if (yearOnly.Success && int.TryParse(yearOnly.Groups[2].Value, out var year)
+            && year >= 2000 && year <= today.Year + 1)
+        {
+            var yearStart = new DateTime(year, 1, 1);
+            var yearEnd = new DateTime(year, 12, 31);
+            if (yearEnd > today) yearEnd = today;
+            return (yearStart, yearEnd,
+                $"Year '{year}' → {yearStart:yyyy-MM-dd} to {yearEnd:yyyy-MM-dd}");
+        }
+
         // Fall back to conversation state
         if (state?.LastRange is { Start: not null, End: not null }
             && DateTime.TryParseExact(state.LastRange.Start, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var cs)

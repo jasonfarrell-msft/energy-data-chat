@@ -14,7 +14,7 @@ param modelVersion string = '2025-12-11'
 param skuName string = 'GlobalStandard'
 
 @description('Deployment capacity (thousands of tokens per minute).')
-param skuCapacity int = 10
+param skuCapacity int = 50
 
 resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
   name: aiFoundryName
