@@ -94,21 +94,19 @@ function ChatChart({ data }) {
 
 function BotMessage({ content }) {
   const chartData = extractChartData(content)
-  const [showChart, setShowChart] = useState(false)
+  const [showChart, setShowChart] = useState(true)
 
   return (
     <>
-      {!showChart && (
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-      )}
-      {showChart && chartData && <ChatChart data={chartData} />}
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      {chartData && showChart && <ChatChart data={chartData} />}
       {chartData && (
         <button
           className="chart-toggle-btn"
           onClick={() => setShowChart(prev => !prev)}
         >
           <FaChartBar />
-          {showChart ? 'View as Table' : 'View as Chart'}
+          {showChart ? 'Hide Chart' : 'Show Chart'}
         </button>
       )}
     </>

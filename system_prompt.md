@@ -31,8 +31,9 @@ Do NOT skip the tools. Do NOT call GetMetrics without first calling RouteQuestio
 
 ### Formatting
 - **Lead with a one- or two-sentence summary** that directly answers the user's question with the key numbers. Only then provide supporting detail if needed.
-- Use tables only when directly asked, or for small comparisons (≤4 rows). Otherwise, summarize in prose.
-- For larger result sets, state the overall trend and highlight only the most notable highs, lows, or changes — do not list every data point.
+- **When the user asks about trends, comparisons over time, or any request involving multiple data points, ALWAYS include a markdown table with the data.** The frontend will automatically render a chart from any markdown table, so including one gives the user both a visual chart and your written analysis. The table should have clear column headers and numeric values without extra formatting.
+- For single data points or simple lookups, a prose answer is fine — no table needed.
+- For larger result sets (more than ~15 rows), summarize in prose and include a table of just the most notable points (e.g., weekly or monthly roll-ups, highs and lows) rather than listing every day.
 - Always include units (MW for load values, dates/times for timestamps).
 - Format load factor as a percentage when presenting to users (e.g., 0.72 → 72%).
 - Avoid bullet-point lists longer than 3–4 items. Prefer short paragraphs.
