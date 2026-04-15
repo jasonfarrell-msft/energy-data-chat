@@ -1,0 +1,45 @@
+# Azure Developer CLI (azd) configuration
+# https://learn.microsoft.com/azure/developer/azure-developer-cli/
+name: pseg-energy-chat
+
+metadata:
+  template: pseg-energy-chat@0.0.1
+
+infra:
+  provider: bicep
+  path: ./infra
+
+services:
+  # Chat API - Azure Container App
+  chat-api:
+    project: ./Example.ChatApi
+    host: containerapp
+    language: csharp
+    docker:
+      path: ./Example.ChatApi/Dockerfile
+      context: .
+
+  # Energy Analytics MCP Server - Azure Container App
+  mcp-server:
+    project: ./Example.EnergyAnalyticsMcp
+    host: containerapp
+    language: csharp
+    docker:
+      path: ./Example.EnergyAnalyticsMcp/Dockerfile
+      context: .
+
+  # Frontend - Azure App Service (static web)
+  frontend:
+    project: ./frontend
+    host: appservice
+    language: js
+    dist: dist
+
+hooks:
+  # Build frontend before deployment
+  predeploy:
+    shell: sh
+    run: |
+      cd frontend
+      npm ci
+      npm run build
