@@ -70,3 +70,16 @@ User: Jason Farrell
 - LLM intent classification is best-effort with graceful keyword fallback
 - Health checks use Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore 9.0.1 for EF Core integration
 
+### 2026-04-15: Added "week of {date}" date pattern support
+**RouteQuestionTool Date Parsing:**
+- Added support for "week of {date}" patterns in ResolveTimeRange method
+- Supported formats: ISO (2025-01-05), named (January 5, 2025), abbreviated (Jan 5, 2025), short (Jan 5)
+- Pattern returns 7-day window starting from the specified date
+- Position in priority: after explicit ISO ranges, before "last N days" patterns
+- When year is omitted and date is in the future, defaults to previous year
+- Explicit grain keywords (e.g., "hourly") take precedence via ResolveGrain (already worked)
+
+**Test Updates:**
+- Added 23 new tests for "week of" patterns covering ISO, named month, abbreviated month formats
+- Fixed test `Execute_HourlyPeakDemandDuringWeekOf_CorrectGrainAndDateRange` to use keyword-matching phrase "peak load" instead of "peak demand"
+

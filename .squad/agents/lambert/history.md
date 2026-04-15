@@ -61,6 +61,32 @@ Created comprehensive test coverage for backend components:
 - Added Moq and Microsoft.EntityFrameworkCore.InMemory to test projects
 
 **File Locations:**
-- `/Example.EnergyAnalyticsMcp.Tests/RouteQuestionToolTests.cs` - 85 passing tests
+- `/Example.EnergyAnalyticsMcp.Tests/RouteQuestionToolTests.cs` - 108 passing tests
 - `/Example.EnergyAnalyticsMcp.Tests/GetMetricsToolTests.cs` - 55 tests (EF issue)
 - `/Example.ChatApi.Tests/ChatControllerTests.cs` - 27 passing tests
+
+### 2026-04-14: Week-of date pattern tests
+Added 23 unit tests for the "week of {date}" date parsing feature in RouteQuestionTool.
+
+**Test Cases Added:**
+- Short month format: "week of Jan 5" (no year, defaults intelligently)
+- Full month with year: "week of January 5, 2025"
+- ISO format: "week of 2025-01-05"
+- Combined with grain: "hourly peak demand during week of Jan 5" (grain=hour)
+- Month boundary edge case: "week of Feb 28" (spans into March)
+- Year boundary edge case: "week of Dec 29" (crosses into next year)
+- Case insensitivity: "WEEK OF JAN 5" works same as "week of Jan 5"
+- Intent combination: "load factor for week of Jan 5" (verifies intent + date)
+- Grain auto-selection: 7-day window auto-selects "day" grain
+
+**Key Findings:**
+- Week spans 7 days (start date + 6 days = end date)
+- No-year dates default to current year if in past, previous year if in future
+- Explicit grain keywords (hourly/daily/weekly) override auto-selection
+- Intent detection works independently of "week of" date parsing
+
+**Pre-existing Test Failures Noted (7 tests, not related to week-of):**
+- Conversation state carry-forward tests failing
+- Empty/whitespace question handling returns "error" intent instead of "general_trend"
+- Invalid JSON conversation state returns "error" instead of graceful fallback
+- These appear to be from production code changes since original tests were written

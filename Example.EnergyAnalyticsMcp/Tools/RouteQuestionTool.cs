@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Azure.AI.Projects;
 using Example.EnergyAnalyticsMcp.Models;
 using ModelContextProtocol.Server;
 
@@ -10,6 +11,8 @@ namespace Example.EnergyAnalyticsMcp.Tools;
 [McpServerToolType]
 public class RouteQuestionTool
 {
+    private readonly AIProjectClient? _projectClient;
+    private readonly ILogger<RouteQuestionTool>? _logger;
 
     // ── Valid intents and their associated metrics ──
     private static readonly Dictionary<string, string[]> IntentMetrics = new()
@@ -35,8 +38,10 @@ public class RouteQuestionTool
         (["summary", "overview", "summarize", "report"], "summary"),
     ];
 
-    public RouteQuestionTool()
+    public RouteQuestionTool(AIProjectClient? projectClient = null, ILogger<RouteQuestionTool>? logger = null)
     {
+        _projectClient = projectClient;
+        _logger = logger;
     }
 
     /// <summary>
@@ -48,49 +53,122 @@ public class RouteQuestionTool
         "Classifies a natural-language energy question into a structured query plan. " +
         "Accepts a user question and optional conversation state (last_grain, last_range) " +
         "and returns: intent (e.g. min_max_mw_trend, avg_load, peak_demand), " +
-        "grain (day | week | month), metrics list (e.g. min_mw, max_mw, avg_mw), " +
+        "grain (hour | day | week | month), metrics list (e.g. min_mw, max_mw, avg_mw), " +
         "start_date, end_date, and a reason string. " +
         "Call this tool first to determine what data to fetch, then pass the result to GetMetrics.")]
-    public RouteQuestionOutput Execute(
+    public async Task<RouteQuestionOutput> Execute(
         [Description("The natural-language energy question from the user, e.g. 'How did the daily minimum and maximum load change last month?'")]
         string question,
 
         [Description("Optional JSON-encoded conversation state containing last_grain (day|week|month) and last_range ({start, end} as ISO dates). Pass null or omit if no prior context exists.")]
         string? conversationState = null)
     {
-        ConversationState? state = null;
-        if (!string.IsNullOrWhiteSpace(conversationState))
+        try
         {
-            state = JsonSerializer.Deserialize<ConversationState>(conversationState, new JsonSerializerOptions
+            if (string.IsNullOrWhiteSpace(question))
             {
-                PropertyNameCaseInsensitive = true
-            });
+                return ErrorOutput("Question cannot be null or empty.");
+            }
+
+            ConversationState? state = null;
+            if (!string.IsNullOrWhiteSpace(conversationState))
+            {
+                try
+                {
+                    state = JsonSerializer.Deserialize<ConversationState>(conversationState, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                }
+                catch (JsonException ex)
+                {
+                    return ErrorOutput($"Failed to parse conversation state: {ex.Message}");
+                }
+            }
+
+            var q = question.ToLowerInvariant();
+            var today = DateTime.UtcNow.Date;
+
+            // 1. Deterministic: resolve date range
+            var (startDate, endDate, dateReason) = ResolveTimeRange(q, today, state);
+
+            // 2. Deterministic: resolve grain
+            var (grain, grainReason) = ResolveGrain(q, startDate, endDate, state);
+
+            // 3. LLM-based intent classification (with keyword fallback)
+            var (intent, intentReason) = await ResolveIntentAsync(q).ConfigureAwait(false);
+            var metrics = IntentMetrics.TryGetValue(intent, out var m)
+                ? m.ToList()
+                : ["average_mw", "min_mw", "max_mw"];
+
+            return new RouteQuestionOutput
+            {
+                Intent = intent,
+                Grain = grain,
+                Metrics = metrics,
+                StartDate = startDate.ToString("yyyy-MM-dd"),
+                EndDate = endDate.ToString("yyyy-MM-dd"),
+                Reason = $"{intentReason}; {grainReason}; {dateReason}"
+            };
+        }
+        catch (Exception ex)
+        {
+            return ErrorOutput($"Failed to route question: {ex.Message}");
+        }
+    }
+
+    private static RouteQuestionOutput ErrorOutput(string message) => new()
+    {
+        Intent = "error",
+        Grain = "day",
+        Metrics = [],
+        StartDate = "",
+        EndDate = "",
+        Reason = message
+    };
+
+    private async Task<(string Intent, string Reason)> ResolveIntentAsync(string q)
+    {
+        if (_projectClient != null)
+        {
+            try
+            {
+                var llmIntent = await ClassifyIntentWithLLMAsync(q);
+                if (!string.IsNullOrEmpty(llmIntent) && IntentMetrics.ContainsKey(llmIntent))
+                {
+                    return (llmIntent, $"Intent '{llmIntent}' classified by LLM");
+                }
+                _logger?.LogWarning("LLM returned invalid intent '{Intent}', falling back to keywords", llmIntent);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "LLM intent classification failed, falling back to keywords");
+            }
         }
 
-        var q = question.ToLowerInvariant();
-        var today = DateTime.UtcNow.Date;
+        return ResolveIntentByKeywords(q, "LLM unavailable or failed");
+    }
 
-        // 1. Deterministic: resolve date range
-        var (startDate, endDate, dateReason) = ResolveTimeRange(q, today, state);
+    private async Task<string?> ClassifyIntentWithLLMAsync(string question)
+    {
+        var prompt = $@"You are an energy analytics intent classifier. Classify the following question into exactly ONE of these intents:
 
-        // 2. Deterministic: resolve grain
-        var (grain, grainReason) = ResolveGrain(q, startDate, endDate, state);
+- min_max_mw_trend: Questions about minimum and maximum MW values together
+- peak_demand: Questions about peak load, highest demand, or maximum MW specifically
+- min_demand: Questions about minimum load or lowest demand
+- avg_load: Questions about average load or mean demand
+- load_factor: Questions about load factor, capacity factor, or utilization
+- general_trend: Questions about trends, changes over time, or how values changed
+- summary: Questions asking for a summary, overview, or report
 
-        // 3. Deterministic keyword-based intent classification
-        var (intent, intentReason) = ResolveIntentByKeywords(q);
-        var metrics = IntentMetrics.TryGetValue(intent, out var m)
-            ? m.ToList()
-            : ["average_mw", "min_mw", "max_mw"];
+Question: {question}
 
-        return new RouteQuestionOutput
-        {
-            Intent = intent,
-            Grain = grain,
-            Metrics = metrics,
-            StartDate = startDate.ToString("yyyy-MM-dd"),
-            EndDate = endDate.ToString("yyyy-MM-dd"),
-            Reason = $"{intentReason}; {grainReason}; {dateReason}"
-        };
+Respond with ONLY the intent name, nothing else.";
+
+        var chatClient = _projectClient!.OpenAI.GetChatClient("gpt-4o-mini");
+        var response = await chatClient.CompleteChatAsync(prompt);
+        var intent = response.Value.Content[0].Text.Trim().ToLowerInvariant();
+        return intent;
     }
 
     private static (string Intent, string Reason) ResolveIntentByKeywords(string q, string? prefixReason = null)
@@ -126,6 +204,48 @@ public class RouteQuestionTool
             && DateTime.TryParseExact(explicitRange.Groups[2].Value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var ee))
         {
             return (es, ee, $"Explicit date range parsed: {es:yyyy-MM-dd} to {ee:yyyy-MM-dd}");
+        }
+
+        // "week of {date}" — supports: "week of Jan 5", "week of January 5, 2025", "week of 2025-01-05"
+        var weekOfMatch = Regex.Match(q,
+            @"week\s+of\s+(" +
+            // ISO format: 2025-01-05
+            @"\d{4}-\d{2}-\d{2}|" +
+            // Month day, year: January 5, 2025 or Jan 5, 2025
+            @"(?:january|february|march|april|may|june|july|august|september|october|november|december|" +
+            @"jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{1,2}(?:,?\s+\d{4})?)",
+            RegexOptions.IgnoreCase);
+        if (weekOfMatch.Success)
+        {
+            var dateStr = weekOfMatch.Groups[1].Value.Trim();
+            DateTime? weekStart = null;
+
+            // Try ISO format first
+            if (DateTime.TryParseExact(dateStr, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var isoDate))
+            {
+                weekStart = isoDate;
+            }
+            // Try "Month Day, Year" or "Month Day" formats
+            else if (DateTime.TryParse(dateStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDate))
+            {
+                // If no year was specified, default to the reference year (today's year or previous year if date is in future)
+                if (!Regex.IsMatch(dateStr, @"\d{4}"))
+                {
+                    parsedDate = new DateTime(today.Year, parsedDate.Month, parsedDate.Day);
+                    if (parsedDate > today)
+                    {
+                        parsedDate = parsedDate.AddYears(-1);
+                    }
+                }
+                weekStart = parsedDate;
+            }
+
+            if (weekStart.HasValue)
+            {
+                var weekEnd = weekStart.Value.AddDays(6);
+                return (weekStart.Value, weekEnd,
+                    $"'week of {dateStr}' → {weekStart.Value:yyyy-MM-dd} to {weekEnd:yyyy-MM-dd}");
+            }
         }
 
         // "last N days"
@@ -256,6 +376,8 @@ public class RouteQuestionTool
         string q, DateTime start, DateTime end, ConversationState? state)
     {
         // Explicit grain mention in the question takes priority
+        if (Regex.IsMatch(q, @"\bhourly\b|\bper\s*hour\b|\beach\s*hour\b|\bhour[\s-]over[\s-]hour\b|\bby\s+(?:the\s+)?hour\b"))
+            return ("hour", "Grain 'hour' explicitly mentioned in question");
         if (Regex.IsMatch(q, @"\bdaily\b|\bper\s*day\b|\beach\s*day\b|\bday[\s-]over[\s-]day\b|\bby\s+day\b"))
             return ("day", "Grain 'day' explicitly mentioned in question");
         if (Regex.IsMatch(q, @"\bweekly\b|\bper\s*week\b|\beach\s*week\b|\bweek[\s-]over[\s-]week\b|\bby\s+week\b"))
@@ -265,6 +387,8 @@ public class RouteQuestionTool
 
         // Infer from window size
         var span = (end - start).TotalDays;
+        if (span <= 3)
+            return ("hour", $"Window is {span:F0} days; auto-selected grain 'hour'");
         if (span <= 14)
             return ("day", $"Window is {span:F0} days; auto-selected grain 'day'");
         if (span <= 90)
